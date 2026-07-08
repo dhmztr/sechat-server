@@ -1,0 +1,8 @@
+/target
+
+# runtime data (sled mailbox db)
+/mailbox
+
+# TLS material — never commit
+*.pem
+*.key
