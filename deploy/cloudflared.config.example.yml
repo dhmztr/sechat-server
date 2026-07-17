@@ -1,0 +1,14 @@
+# Reference ingress config. tunnel.sh generates /etc/cloudflared/config.yml for you
+# with the real tunnel name + credentials path filled in.
+#
+# The relay speaks plain ws on localhost:3000; Cloudflare terminates TLS at the edge,
+# so clients connect to wss://<hostname>. A tunnel is HTTP/WebSocket only — UDP
+# (STUN + direct P2P) does NOT traverse it, so the app runs relay-only.
+
+tunnel: sechat
+credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  - hostname: relay.example.com
+    service: http://localhost:3000
+  - service: http_status:404

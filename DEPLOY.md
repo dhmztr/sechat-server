@@ -42,29 +42,31 @@ cd sechat-server && cargo build --release   # -> target/release/seserver
 sudo install -m755 target/release/seserver /usr/local/bin/seserver
 ```
 
-## 3. Install cloudflared + create the tunnel
+## 3. Create the Cloudflare Tunnel (one command)
+
+From a checkout of this repo on the box:
 
 ```bash
-# install (amd64)
+sudo bash deploy/tunnel.sh relay.example.com      # your hostname
+```
+
+It installs `cloudflared`, walks you through the one browser-login step, creates
+the `sechat` tunnel, adds the DNS record, writes `/etc/cloudflared/config.yml`
+(ingress -> `http://localhost:3000`), and runs it as a systemd service. After this,
+`https://relay.example.com` reaches the relay with Cloudflare's edge TLS.
+
+<details><summary>What it does manually (if you prefer)</summary>
+
+```bash
 curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
 sudo dpkg -i cloudflared.deb
-
-cloudflared tunnel login                       # opens a browser, pick your domain
-cloudflared tunnel create sechat               # writes ~/.cloudflared/<UUID>.json
+cloudflared tunnel login
+cloudflared tunnel create sechat
 cloudflared tunnel route dns sechat relay.example.com
+# then /etc/cloudflared/config.yml per deploy/cloudflared.config.example.yml, and:
+sudo cloudflared service install && sudo systemctl enable --now cloudflared
 ```
-
-`~/.cloudflared/config.yml`:
-
-```yaml
-tunnel: sechat
-credentials-file: /root/.cloudflared/<UUID>.json
-
-ingress:
-  - hostname: relay.example.com
-    service: http://localhost:3000      # plain ws; edge is wss
-  - service: http_status:404
-```
+</details>
 
 ## 4. One-time server setup
 
@@ -80,13 +82,8 @@ sudo bash deploy/setup.sh <deploy-ssh-user>   # e.g. your normal SSH user
 
 The default env runs plain `ws://` on localhost behind the tunnel (edge does TLS).
 Edit `/etc/seserver.env` to switch to direct `wss` with your own cert. The service
-starts on the first CI deploy (once `/usr/local/bin/seserver` exists). Then run the
-tunnel:
-
-```bash
-sudo cloudflared service install     # runs the tunnel as a systemd service
-sudo systemctl enable --now cloudflared
-```
+starts on the first CI deploy (once `/usr/local/bin/seserver` exists); the tunnel is
+already running from step 3.
 
 Lock the box down — only cloudflared should reach the app:
 
