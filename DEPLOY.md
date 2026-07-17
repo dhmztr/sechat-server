@@ -104,7 +104,50 @@ SECHAT_SERVER=relay.example.com sechat-gui
 ```
 
 STUN is unreachable over the tunnel, so leave `SECHAT_STUN` unset; the client falls
-back to relay automatically.
+back to relay automatically. To get real direct P2P, see below.
+
+## Direct P2P (true UDP)
+
+A Cloudflare Tunnel can't carry UDP, so behind it the app is relay-only. Real
+peer-to-peer needs two UDP things, and only **one** of them touches your server:
+
+1. **STUN** — each client asks your server's UDP STUN responder for its own public
+   address. Needs the server reachable on UDP `3478`.
+2. **Hole punching** — clients then send UDP straight to *each other*. This never
+   touches your server; it only needs the relay to broker the punch, which already
+   works over `wss`.
+
+So you don't tunnel UDP — you just make the **STUN port reachable directly**.
+
+### Hybrid: relay via the tunnel, STUN direct (keeps the relay IP hidden)
+
+1. In Cloudflare DNS add a **DNS-only (grey-cloud)** `A` record, e.g.
+   `stun.example.com -> <vps-public-ip>`. Grey cloud = not proxied, so UDP reaches
+   the box.
+2. Open the STUN port on the box (default `3478`, from `/etc/seserver.env`):
+   ```bash
+   sudo ufw allow 3478/udp
+   ```
+3. Point clients' STUN at it (the relay still rides the tunnel):
+   ```bash
+   SECHAT_SERVER=relay.example.com  SECHAT_STUN=stun.example.com:3478  sechat-gui
+   ```
+
+Now cone-NAT peers open a direct UDP path; only symmetric-NAT-on-both-ends pairs fall
+back to the relay (that is inherent to NAT — the relay is the TURN fallback).
+
+### Fully direct (no tunnel)
+
+Skip the tunnel entirely: DNS-only `A` record to the box, open `3000/tcp` +
+`3478/udp`, and give the relay a real cert so clients use `wss://` straight to the
+box. In `/etc/seserver.env` set `TLS_CERT`/`TLS_KEY` (Let's Encrypt or a Cloudflare
+Origin Certificate) and remove `SECHAT_DEV_INSECURE`. Trade-off: the box's IP is
+exposed.
+
+### Notes
+- Direct P2P still can't beat symmetric NAT on both ends — those pairs always relay.
+- Cloudflare **Spectrum** does proxy UDP, but it is a paid add-on; the grey-cloud STUN
+  record above is free.
 
 ## Verifying
 
