@@ -1,0 +1,25 @@
+[Unit]
+Description=sechat relay server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Config lives here (SECHAT_DEV_INSECURE / TLS_CERT / TLS_KEY / STUN_PORT / SECHAT_DEBUG).
+# The leading '-' means "ok if the file is missing".
+EnvironmentFile=-/etc/seserver.env
+ExecStart=/usr/local/bin/seserver
+WorkingDirectory=/var/lib/seserver
+User=seserver
+Group=seserver
+Restart=on-failure
+RestartSec=2
+
+# hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/seserver
+
+[Install]
+WantedBy=multi-user.target

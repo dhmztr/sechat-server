@@ -11,9 +11,8 @@ name: Deploy
 #   SSH_KEY    - the PRIVATE SSH key for that user (PEM)
 #   SSH_PORT   - optional, defaults to 22
 #
-# The deploy user needs passwordless sudo for exactly the install + restart, e.g.
-# in /etc/sudoers.d/seserver:
-#   deploy ALL=(root) NOPASSWD: /usr/bin/install -m755 /tmp/seserver-upload/seserver /usr/local/bin/seserver, /bin/systemctl restart seserver
+# Server-side one-time setup (creates the user, systemd unit, sudoers):
+#   sudo bash deploy/setup.sh <deploy-ssh-user>
 
 on:
   workflow_dispatch:

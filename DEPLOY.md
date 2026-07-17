@@ -66,33 +66,24 @@ ingress:
   - service: http_status:404
 ```
 
-## 4. systemd units
+## 4. One-time server setup
 
-`/etc/systemd/system/seserver.service` — runs plain `ws://` on localhost (the tunnel
-provides TLS, so `SECHAT_DEV_INSECURE=1` is correct **only because** it sits behind
-cloudflared on loopback; never expose port 3000 publicly):
-
-```ini
-[Unit]
-Description=sechat relay
-After=network.target
-
-[Service]
-Environment=SECHAT_DEV_INSECURE=1
-# Environment=SECHAT_DEBUG=1
-ExecStart=/usr/local/bin/seserver
-WorkingDirectory=/var/lib/seserver
-User=seserver
-Restart=on-failure
-RestartSec=2
-
-[Install]
-WantedBy=multi-user.target
-```
+The service account, systemd unit (`deploy/seserver.service`), env file
+(`/etc/seserver.env`, from `deploy/seserver.env.example`) and the CI sudoers rule
+are all installed by one script. On the box, from a checkout of this repo:
 
 ```bash
-sudo useradd --system --home /var/lib/seserver --create-home seserver
-sudo systemctl enable --now seserver
+git clone https://github.com/Lukidere/sechat-server.git
+cd sechat-server
+sudo bash deploy/setup.sh <deploy-ssh-user>   # e.g. your normal SSH user
+```
+
+The default env runs plain `ws://` on localhost behind the tunnel (edge does TLS).
+Edit `/etc/seserver.env` to switch to direct `wss` with your own cert. The service
+starts on the first CI deploy (once `/usr/local/bin/seserver` exists). Then run the
+tunnel:
+
+```bash
 sudo cloudflared service install     # runs the tunnel as a systemd service
 sudo systemctl enable --now cloudflared
 ```
@@ -129,28 +120,42 @@ sudo journalctl -u cloudflared -f
 
 ## Automated deploys (GitHub Actions)
 
-`.github/workflows/deploy.yml` builds a static musl binary and ships it to your
-box over SSH, then restarts the service. Run it manually (Actions -> Deploy ->
-Run workflow) or on every push to `master`.
+`.github/workflows/deploy.yml` builds a static musl binary and ships it to your box
+over SSH, then restarts the service. It runs on **every push to `master`** (that is
+the "auto-update from GitHub") and can also be run by hand (Actions -> Deploy -> Run
+workflow).
 
-Set these repo secrets (Settings -> Secrets and variables -> Actions):
+### Which secrets, and how to get them
 
-| Secret | Value |
-| --- | --- |
-| `SSH_HOST` | host/IP the runner can SSH to |
-| `SSH_USER` | deploy user on the box |
-| `SSH_KEY`  | that user's **private** SSH key (PEM) |
-| `SSH_PORT` | optional, defaults to `22` |
+Four repo secrets (Settings -> Secrets and variables -> Actions -> New secret):
 
-Give the deploy user passwordless sudo for exactly the install + restart —
-`/etc/sudoers.d/seserver`:
+| Secret | What it is | How to get it |
+| --- | --- | --- |
+| `SSH_HOST` | your VPS's public IP or hostname | from your VPS provider (e.g. `203.0.113.10`) |
+| `SSH_USER` | the deploy SSH user on the VPS | the account you gave to `setup.sh` |
+| `SSH_KEY`  | that user's **private** SSH key (whole file) | generated below |
+| `SSH_PORT` | SSH port (skip if `22`) | your VPS SSH port |
 
+Generate a dedicated CI key **on your own machine** (no passphrase so CI can use it):
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/sechat_ci -N "" -C "sechat-ci"
 ```
-deploy ALL=(root) NOPASSWD: /usr/bin/install -m755 /tmp/seserver-upload/seserver /usr/local/bin/seserver, /bin/systemctl restart seserver
+
+Install the **public** half on the VPS deploy user, then paste the **private** half
+into the `SSH_KEY` secret:
+
+```bash
+# add the public key to the VPS (lets CI log in):
+ssh-copy-id -i ~/.ssh/sechat_ci.pub <deploy-user>@<vps-host>
+
+# copy the PRIVATE key text into the GitHub secret SSH_KEY (the entire file):
+cat ~/.ssh/sechat_ci          # -----BEGIN OPENSSH PRIVATE KEY----- ... -----END-----
 ```
 
-The workflow does not build TLS/UDP-specific config — it just replaces the binary
-and restarts; env (SECHAT_DEV_INSECURE etc.) lives in the systemd unit above.
+That's it: push to `master` and the box updates itself. The workflow only replaces
+the binary and restarts — runtime config (`SECHAT_DEV_INSECURE`, `TLS_*`, …) stays in
+`/etc/seserver.env` on the box.
 
 ## Persisted state
 
