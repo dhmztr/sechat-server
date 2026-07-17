@@ -127,6 +127,31 @@ sudo journalctl -u seserver -f               # watch auth + relay logs
 sudo journalctl -u cloudflared -f
 ```
 
+## Automated deploys (GitHub Actions)
+
+`.github/workflows/deploy.yml` builds a static musl binary and ships it to your
+box over SSH, then restarts the service. Run it manually (Actions -> Deploy ->
+Run workflow) or on every push to `master`.
+
+Set these repo secrets (Settings -> Secrets and variables -> Actions):
+
+| Secret | Value |
+| --- | --- |
+| `SSH_HOST` | host/IP the runner can SSH to |
+| `SSH_USER` | deploy user on the box |
+| `SSH_KEY`  | that user's **private** SSH key (PEM) |
+| `SSH_PORT` | optional, defaults to `22` |
+
+Give the deploy user passwordless sudo for exactly the install + restart —
+`/etc/sudoers.d/seserver`:
+
+```
+deploy ALL=(root) NOPASSWD: /usr/bin/install -m755 /tmp/seserver-upload/seserver /usr/local/bin/seserver, /bin/systemctl restart seserver
+```
+
+The workflow does not build TLS/UDP-specific config — it just replaces the binary
+and restarts; env (SECHAT_DEV_INSECURE etc.) lives in the systemd unit above.
+
 ## Persisted state
 
 The server writes its mailbox (offline blobs) to `./mailbox` in its working dir

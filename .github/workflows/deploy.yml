@@ -1,0 +1,76 @@
+name: Deploy
+
+# Builds a static (musl) seserver binary and ships it to a specific machine over
+# SSH, then restarts the systemd service. See DEPLOY.md for the server-side setup
+# (systemd unit + Cloudflare Tunnel).
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   SSH_HOST   - hostname/IP the runner can reach over SSH (e.g. your box or a
+#                Cloudflare Tunnel SSH hostname)
+#   SSH_USER   - deploy user on that box
+#   SSH_KEY    - the PRIVATE SSH key for that user (PEM)
+#   SSH_PORT   - optional, defaults to 22
+#
+# The deploy user needs passwordless sudo for exactly the install + restart, e.g.
+# in /etc/sudoers.d/seserver:
+#   deploy ALL=(root) NOPASSWD: /usr/bin/install -m755 /tmp/seserver-upload/seserver /usr/local/bin/seserver, /bin/systemctl restart seserver
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, main]
+
+env:
+  CARGO_TERM_COLOR: always
+  TARGET: x86_64-unknown-linux-musl
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install musl toolchain
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+      - name: Build static release binary
+        run: cargo build --release --target "$TARGET"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: seserver
+          path: target/${{ env.TARGET }}/release/seserver
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: seserver
+          path: dist
+
+      - name: Copy binary to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: dist/seserver
+          target: /tmp/seserver-upload
+          strip_components: 1
+
+      - name: Install + restart
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            chmod +x /tmp/seserver-upload/seserver
+            sudo install -m755 /tmp/seserver-upload/seserver /usr/local/bin/seserver
+            sudo systemctl restart seserver
+            systemctl is-active seserver
