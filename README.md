@@ -1,6 +1,6 @@
 # seserver
 
-[![CI](https://github.com/Lukidere/sechat-server/actions/workflows/ci.yml/badge.svg)](https://github.com/Lukidere/sechat-server/actions/workflows/ci.yml)
+[![CI](https://github.com/dhmztr/sechat-server/actions/workflows/ci.yml/badge.svg)](https://github.com/dhmztr/sechat-server/actions/workflows/ci.yml)
 
 Relay server for [sechat](https://github.com/Lukidere/sechat-client): presence
 signaling, an offline-message mailbox, a UDP STUN responder, and TURN-style

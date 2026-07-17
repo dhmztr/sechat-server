@@ -37,7 +37,7 @@ creates the `relay.example.com` record for you — no manual `A`/`CNAME` needed.
 sudo apt-get update && sudo apt-get install -y build-essential pkg-config
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 source "$HOME/.cargo/env"
-git clone https://github.com/Lukidere/sechat-server.git
+git clone https://github.com/dhmztr/sechat-server.git
 cd sechat-server && cargo build --release   # -> target/release/seserver
 sudo install -m755 target/release/seserver /usr/local/bin/seserver
 ```
@@ -75,7 +75,7 @@ The service account, systemd unit (`deploy/seserver.service`), env file
 are all installed by one script. On the box, from a checkout of this repo:
 
 ```bash
-git clone https://github.com/Lukidere/sechat-server.git
+git clone https://github.com/dhmztr/sechat-server.git
 cd sechat-server
 sudo bash deploy/setup.sh <deploy-ssh-user>   # e.g. your normal SSH user
 ```
