@@ -279,7 +279,7 @@ pub async fn handle_message(
                         }
                     }
 
-                    let (initiator_ip, my_ip) = {
+                    let (initiator_ip, initiator_hash, my_ip) = {
                         let entries = state.presence.get(&token).ok_or_else(|| {
                             ServerError::StorageFailed("no presence for token".to_owned())
                         })?;
@@ -301,19 +301,27 @@ pub async fn handle_message(
                                     ServerError::StorageFailed("self not in presence".to_owned())
                                 })?;
 
-                        (initiator.ip_port.clone(), me.ip_port.clone())
+                        (
+                            initiator.ip_port.clone(),
+                            initiator.pub_key,
+                            me.ip_port.clone(),
+                        )
                     };
 
                     let punchtimestamp = Utc::now().timestamp() + 5;
 
+                    // Each side learns the OTHER peer's identity so it can load keys
+                    // by hash (robust) instead of matching a cached address.
                     let initiator_msg = ServerMessage::PunchHole {
                         token,
+                        peer_hash: pub_key,
                         ip_port: my_ip,
                         punchtimestamp,
                     };
 
                     let my_msg = ServerMessage::PunchHole {
                         token,
+                        peer_hash: initiator_hash,
                         ip_port: initiator_ip,
                         punchtimestamp,
                     };

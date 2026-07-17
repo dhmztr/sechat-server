@@ -84,6 +84,7 @@ pub enum ServerMessage {
     },
     PunchHole {
         token: [u8; 32],
+        peer_hash: [u8; 32],
         ip_port: String,
         punchtimestamp: i64,
     },
