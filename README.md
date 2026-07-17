@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/dhmztr/sechat-server/actions/workflows/ci.yml/badge.svg)](https://github.com/dhmztr/sechat-server/actions/workflows/ci.yml)
 
-Relay server for [sechat](https://github.com/Lukidere/sechat-client): presence
+Relay server for [sechat](https://github.com/dhmztr/sechat-client): presence
 signaling, an offline-message mailbox, a UDP STUN responder, and TURN-style
 relaying of P2P connections. It only ever moves ciphertext addressed to identity
 hashes, never plaintext.
@@ -32,5 +32,5 @@ Listens on `0.0.0.0:3000` (WebSocket) and `0.0.0.0:$STUN_PORT` (UDP).
 cargo test
 ```
 
-See the [client repo](https://github.com/Lukidere/sechat-client) for protocol
+See the [client repo](https://github.com/dhmztr/sechat-client) for protocol
 details, threat model, and architecture diagrams.
